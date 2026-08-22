@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite has no native enum type, so Prisma requires these as plain strings.
+// Valid values are enforced in application code (see server/src/lib/enums.ts):
+//   ConceptKind: SYSTEM | REGION | STRUCTURE | DIAGNOSIS | TOPIC
+//   ItemType:    FLASHCARD | DIAGNOSIS_CASE | ANATOMY_ID | QUIZ_QUESTION
+//   ItemSource:  SEED | MANUAL | AI_UPLOAD | AI_TOPIC
+//   Module:      DIAGNOSIS | ANATOMY | QUIZ | REVIEW
+
+// A hierarchical concept/topic node: System -> Region -> Structure/Diagnosis.
+// Weak spots and mastery are tracked per node at whatever granularity it sits at.
+model ConceptNode {
+  id          String   @id @default(cuid())
+  name        String
+  kind        String
+  parentId    String?
+  parent      ConceptNode?  @relation("ConceptHierarchy", fields: [parentId], references: [id])
+  children    ConceptNode[] @relation("ConceptHierarchy")
+  description String?
+  createdAt   DateTime @default(now())
+
+  itemLinks   ItemConcept[]
+  mastery     MasteryScore?
+  confusionsAsA ConfusionPair[] @relation("ConfusionA")
+  confusionsAsB ConfusionPair[] @relation("ConfusionB")
+
+  @@index([parentId])
+}
+
+// A single question / case / ID prompt. `prompt` and `answerKey` are JSON strings
+// whose shape depends on `type` (flashcard, diagnosis case, anatomy ID, quiz question).
+model Item {
+  id         String     @id @default(cuid())
+  type       String
+  module     String
+  prompt     String
+  answerKey  String
+  difficulty Float      @default(0.5)
+  source     String     @default("MANUAL")
+  sourceRef  String?
+  flagged    Boolean    @default(false)
+  flagNote   String?
+  createdAt  DateTime   @default(now())
+
+  concepts     ItemConcept[]
+  attempts     Attempt[]
+  reviewState  ReviewState?
+
+  @@index([type])
+  @@index([module])
+}
+
+model ItemConcept {
+  itemId    String
+  conceptId String
+  item      Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  concept   ConceptNode @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, conceptId])
+  @@index([conceptId])
+}
+
+// Every time the item is answered. selectedAnswer records the *specific* choice,
+// not just right/wrong, so error analysis (confusion pairs) has something to work with.
+model Attempt {
+  id             String   @id @default(cuid())
+  itemId         String
+  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  correct        Boolean
+  selectedAnswer String
+  responseTimeMs Int
+  module         String
+  createdAt      DateTime @default(now())
+
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+// Derived data: "user confuses concept A with concept B", built from Attempt patterns
+// plus AI analysis. Resurfaces in review until correctStreak reaches the resolution bar.
+model ConfusionPair {
+  id            String      @id @default(cuid())
+  conceptAId    String
+  conceptBId    String
+  conceptA      ConceptNode @relation("ConfusionA", fields: [conceptAId], references: [id])
+  conceptB      ConceptNode @relation("ConfusionB", fields: [conceptBId], references: [id])
+  confidence    Float       @default(0.5)
+  correctStreak Int         @default(0)
+  resolved      Boolean     @default(false)
+  evidence      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([conceptAId, conceptBId])
+}
+
+// Rolling mastery per concept node, combining accuracy + response time + recency.
+model MasteryScore {
+  conceptId     String      @id
+  concept       ConceptNode @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  score         Float       @default(1000)
+  attemptsCount Int         @default(0)
+  correctCount  Int         @default(0)
+  lastUpdated   DateTime    @default(now())
+}
+
+// FSRS scheduling state per item. Field names/values map directly onto ts-fsrs's Card type.
+model ReviewState {
+  itemId        String    @id
+  item          Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  due           DateTime  @default(now())
+  stability     Float     @default(0)
+  difficulty    Float     @default(0)
+  elapsedDays   Float     @default(0)
+  scheduledDays Float     @default(0)
+  reps          Int       @default(0)
+  lapses        Int       @default(0)
+  state         Int       @default(0)
+  lastReview    DateTime?
+
+  @@index([due])
+}
+
+// Single-user streak/XP state — always exactly one row (id=1).
+model StreakState {
+  id             Int       @id @default(1)
+  currentStreak  Int       @default(0)
+  longestStreak  Int       @default(0)
+  lastActiveDate DateTime?
+  xp             Int       @default(0)
+  level          Int       @default(1)
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String
+  unlockedAt  DateTime @default(now())
+}
+
+// Uploaded study material (slides/PDF/DOCX/images) for Quiz Mode A ingestion.
+model Upload {
+  id            String   @id @default(cuid())
+  filename      String
+  mimeType      String
+  extractedText String?
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+}
