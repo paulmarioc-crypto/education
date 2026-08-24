@@ -5,11 +5,11 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  // Used only by `prisma migrate`. On Neon (and other providers that put a
-  // connection pooler in front of Postgres), migrations need the direct,
-  // unpooled connection — pooled connections break Prisma's migration
-  // engine. For a plain local Postgres, DIRECT_URL can just equal DATABASE_URL.
-  directUrl = env("DIRECT_URL")
+  // Used only by `prisma migrate`. Vercel's Neon integration auto-injects both
+  // DATABASE_URL (pooled) and DATABASE_URL_UNPOOLED (direct) with these exact
+  // names — migrations need the direct one, pooled connections break Prisma's
+  // migration engine. For a plain local Postgres, both can be the same value.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum ConceptKind {
