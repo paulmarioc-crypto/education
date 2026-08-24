@@ -1,0 +1,23 @@
+# Render "Blueprint": when you connect this repo on Render, it reads this
+# file and pre-fills a web service from it. You still review/create the
+# service yourself in the Render dashboard — this just saves re-typing.
+services:
+  - type: web
+    name: medstudy
+    runtime: node
+    plan: free
+    branch: claude/medstudy-learning-app-azh5m7
+    buildCommand: npm install && npm run build:server && npm run build:web
+    startCommand: npm run db:deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # paste your Neon connection string in the Render dashboard
+      - key: MEDSTUDY_PIN
+        sync: false
+      - key: MEDSTUDY_SESSION_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PORT
+        value: "4000"

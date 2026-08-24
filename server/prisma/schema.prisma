@@ -3,23 +3,45 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite has no native enum type, so Prisma requires these as plain strings.
-// Valid values are enforced in application code (see server/src/lib/enums.ts):
-//   ConceptKind: SYSTEM | REGION | STRUCTURE | DIAGNOSIS | TOPIC
-//   ItemType:    FLASHCARD | DIAGNOSIS_CASE | ANATOMY_ID | QUIZ_QUESTION
-//   ItemSource:  SEED | MANUAL | AI_UPLOAD | AI_TOPIC
-//   Module:      DIAGNOSIS | ANATOMY | QUIZ | REVIEW
+enum ConceptKind {
+  SYSTEM
+  REGION
+  STRUCTURE
+  DIAGNOSIS
+  TOPIC
+}
+
+enum ItemType {
+  FLASHCARD
+  DIAGNOSIS_CASE
+  ANATOMY_ID
+  QUIZ_QUESTION
+}
+
+enum ItemSource {
+  SEED
+  MANUAL
+  AI_UPLOAD
+  AI_TOPIC
+}
+
+enum Module {
+  DIAGNOSIS
+  ANATOMY
+  QUIZ
+  REVIEW
+}
 
 // A hierarchical concept/topic node: System -> Region -> Structure/Diagnosis.
 // Weak spots and mastery are tracked per node at whatever granularity it sits at.
 model ConceptNode {
   id          String   @id @default(cuid())
   name        String
-  kind        String
+  kind        ConceptKind
   parentId    String?
   parent      ConceptNode?  @relation("ConceptHierarchy", fields: [parentId], references: [id])
   children    ConceptNode[] @relation("ConceptHierarchy")
@@ -38,12 +60,12 @@ model ConceptNode {
 // whose shape depends on `type` (flashcard, diagnosis case, anatomy ID, quiz question).
 model Item {
   id         String     @id @default(cuid())
-  type       String
-  module     String
+  type       ItemType
+  module     Module
   prompt     String
   answerKey  String
   difficulty Float      @default(0.5)
-  source     String     @default("MANUAL")
+  source     ItemSource @default(MANUAL)
   sourceRef  String?
   flagged    Boolean    @default(false)
   flagNote   String?
@@ -76,7 +98,7 @@ model Attempt {
   correct        Boolean
   selectedAnswer String
   responseTimeMs Int
-  module         String
+  module         Module
   createdAt      DateTime @default(now())
 
   @@index([itemId])

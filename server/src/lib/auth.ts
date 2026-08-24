@@ -5,14 +5,16 @@ import { env } from "./env.js";
 const COOKIE_NAME = "medstudy_session";
 const SESSION_TTL = "30d";
 
-export function issueSessionCookie(res: Response) {
+export function issueSessionCookie(req: Request, res: Response) {
   const token = jwt.sign({ sub: "single-user" }, env.sessionSecret, { expiresIn: SESSION_TTL });
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    // Not "secure": this is served over plain HTTP on the home LAN (no TLS cert
-    // for a box's LAN IP). If you later put this behind HTTPS, flip this on.
-    secure: false,
+    // req.secure reflects the real scheme: plain HTTP on a self-hosted LAN box
+    // (no TLS cert for a LAN IP), or HTTPS when behind a hosted platform's
+    // TLS-terminating proxy (Express needs `trust proxy` set for this to see
+    // through X-Forwarded-Proto — see index.ts).
+    secure: req.secure,
     maxAge: 30 * 24 * 60 * 60 * 1000,
     path: "/",
   });

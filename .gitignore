@@ -6,11 +6,6 @@ build/
 *.log
 .DS_Store
 
-# SQLite data (local-first: your learning history stays on your machine, not in git)
-server/prisma/dev.db
-server/prisma/dev.db-journal
-server/prisma/data/
-
 # Vite / PWA
 web/dist/
 web/dev-dist/

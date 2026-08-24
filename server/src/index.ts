@@ -14,6 +14,10 @@ import { itemsRouter } from "./routes/items.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+// Trust the first hop's X-Forwarded-Proto (Render and similar platforms
+// terminate TLS in front of the app) so req.secure reflects the real scheme
+// for the session cookie's `secure` flag. Harmless for self-hosted plain HTTP.
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
 

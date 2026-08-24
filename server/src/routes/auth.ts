@@ -15,7 +15,7 @@ authRouter.post("/login", (req, res) => {
     return res.status(401).json({ error: "incorrect pin" });
   }
 
-  issueSessionCookie(res);
+  issueSessionCookie(req, res);
   res.json({ ok: true });
 });
 
