@@ -12,7 +12,9 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        sync: false # paste your Neon connection string in the Render dashboard
+        sync: false # Neon "Pooled connection" string (hostname has "-pooler")
+      - key: DIRECT_URL
+        sync: false # Neon "Direct connection" string (no "-pooler") — for migrations
       - key: MEDSTUDY_PIN
         sync: false
       - key: MEDSTUDY_SESSION_SECRET
