@@ -24,38 +24,40 @@ Free, no credit card, and only one dashboard to touch for env vars — Vercel's
 Neon integration wires the database connection strings into your project
 automatically, so there's no manual copying between two separate sites.
 
-1. **Push this repo to GitHub** if you haven't (it's already on the
-   `claude/medstudy-learning-app-azh5m7` branch).
-2. **[vercel.com](https://vercel.com):** sign up (GitHub login is easiest),
-   "Add New" → "Project", import this repo. Vercel reads `vercel.json` at
-   the repo root and configures the build/output automatically — you
-   shouldn't need to change any build settings.
-3. Before or after the first deploy, add environment variables (Project →
-   Settings → Environment Variables):
+The repo is already pushed and its only branch (`claude/medstudy-learning-app-azh5m7`) is the repo's default branch, so Vercel will pick the right branch automatically — nothing to configure there.
+
+1. **[vercel.com](https://vercel.com)** → sign up / log in with GitHub.
+2. Dashboard → **"Add New..."** (top right) → **"Project"**. Find
+   `paulmarioc-crypto/education` in the list and click **Import**. (If it's
+   not listed, click "Adjust GitHub App Permissions" and grant Vercel
+   access to it.)
+3. On the "Configure Project" screen, leave every setting as-is and click
+   **Deploy**. `vercel.json` at the repo root controls the build — no
+   fields to fill in here. This first deploy is **expected to fail** (no
+   database connected yet, no PIN set) — that's fine, ignore it. It exists
+   only to create the project so the rest of the settings below become
+   reachable.
+4. Once the project exists (deploy finished, even if it shows "Failed"),
+   go to its **Storage** tab → **Create Database** → choose **Neon** →
+   accept the free plan → give it a name → create. When it finishes, click
+   **Connect Project**, pick this project, and leave all environments
+   checked. This auto-injects `DATABASE_URL` and `DATABASE_URL_UNPOOLED`
+   into the project — you never see or copy a connection string yourself.
+5. Go to **Settings → Environment Variables** and add two:
    - `MEDSTUDY_PIN` → the PIN you'll type to unlock the app
    - `MEDSTUDY_SESSION_SECRET` → any long random string
-   - `ANTHROPIC_API_KEY` → needed from Stage 2+, can leave blank for now
-4. **Add the database** — Project → Storage → "Connect Database" (or
-   "Create Database" from the Marketplace) → choose **Neon**. Accept the
-   free plan. This is the step that replaces all the manual Neon
-   sign-up/connection-string copying from before: Vercel creates the Neon
-   project for you and injects `DATABASE_URL` and `DATABASE_URL_UNPOOLED`
-   into your project automatically — you never see or paste a connection
-   string.
-5. Redeploy (Vercel does this automatically after you connect a database,
-   or trigger one manually from the Deployments tab). The build runs
-   `prisma migrate deploy` as part of `npm run build:server`, so the
-   database gets its tables on this deploy. Check the build log if
-   anything fails.
-6. Vercel gives you a URL like `https://medstudy-xxxx.vercel.app`. Open
-   that on your tablet (and phone, and PC) and "Add to Home Screen" — it's
-   a PWA, so it installs like a native app. Same URL, same data, every
-   device.
+   (`ANTHROPIC_API_KEY` isn't needed until Stage 2 — skip it for now.)
+6. Go to the **Deployments** tab, open the (failed) deployment from step 3,
+   click the **"..."** menu → **Redeploy**. This build now has the database
+   and PIN available, so it applies the database migration, loads a
+   starter deck, and builds successfully.
+7. Open the `https://....vercel.app` URL it gives you on your tablet (and
+   phone, and PC) and "Add to Home Screen" — it's a PWA, so it installs
+   like a native app. Same URL, same data, every device.
 
-Note: because this is a genuine architecture change (the API now runs as a
-serverless function per-request, not a long-running process — see "Project
-layout" below), if the first deploy hits an error I haven't seen before,
-paste me the exact text from Vercel's build or function logs and I'll fix it.
+If a step doesn't match what you see on screen, stop and tell me exactly
+what's there (or send a screenshot) rather than guessing — that's what went
+wrong last time.
 
 **If you ever paste a real connection string into a chat with Claude** (or
 anywhere else outside your own `.env` file), treat that password as
