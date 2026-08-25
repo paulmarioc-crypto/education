@@ -1,23 +1,8 @@
-import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { api } from "./lib/api.js";
-import Login from "./pages/Login.js";
 import Review from "./pages/Review.js";
 import Progress from "./pages/Progress.js";
 
 export default function App() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    api
-      .me()
-      .then((r) => setAuthed(r.authenticated))
-      .catch(() => setAuthed(false));
-  }, []);
-
-  if (authed === null) return null;
-  if (!authed) return <Login onLoggedIn={() => setAuthed(true)} />;
-
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 pb-14">

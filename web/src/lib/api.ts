@@ -11,7 +11,6 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    credentials: "include",
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
@@ -53,9 +52,6 @@ export interface SessionTodayDTO {
 }
 
 export const api = {
-  login: (pin: string) => request<{ ok: true }>("/auth/login", { method: "POST", body: JSON.stringify({ pin }) }),
-  logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
-  me: () => request<{ authenticated: boolean }>("/auth/me"),
   sessionToday: () => request<SessionTodayDTO>("/session/today"),
   submitAttempt: (body: {
     itemId: string;
