@@ -1,4 +1,3 @@
-import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
 import JSZip from "jszip";
 import { stripXmlTags } from "../lib/xml.js";
@@ -8,6 +7,19 @@ import { stripXmlTags } from "../lib/xml.js";
 const MAX_EXTRACTED_CHARS = 200_000;
 
 export async function extractPdfText(buffer: Buffer): Promise<string> {
+  // pdf-parse pulls in pdfjs-dist, whose legacy Node build reads `DOMMatrix`
+  // at module load time for rendering support we never use (text extraction
+  // only). It normally gets that from the optional native `@napi-rs/canvas`
+  // package, but Vercel's serverless bundler doesn't reliably include that
+  // dependency, which crashes the import with "DOMMatrix is not defined" —
+  // and since it ran at import time, it took down every route, not just
+  // uploads. A trivial stand-in satisfies the check without needing real
+  // canvas support; importing pdf-parse lazily (only when a PDF is actually
+  // uploaded) keeps that blast radius contained even if this ever recurs.
+  if (typeof (globalThis as Record<string, unknown>).DOMMatrix === "undefined") {
+    (globalThis as Record<string, unknown>).DOMMatrix = class DOMMatrix {};
+  }
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: buffer });
   try {
     const result = await parser.getText();
