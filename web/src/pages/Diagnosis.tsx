@@ -102,6 +102,15 @@ export default function Diagnosis() {
         {prompt.imaging && <p className="text-sm text-slate-300"><span className="text-slate-500">Imaging: </span>{prompt.imaging}</p>}
       </div>
 
+      {grounded && citations.length > 0 ? (
+        <p className="text-xs text-emerald-400">✓ Grounded in {citations.length} peer-reviewed source{citations.length === 1 ? "" : "s"} — see below.</p>
+      ) : (
+        <div className="rounded-lg bg-amber-900/30 ring-1 ring-amber-700 px-3 py-2 text-sm text-amber-300">
+          ⚠ No matching literature found for this case — generated from the model's general medical knowledge,
+          not verified against a specific source. Treat it with extra scrutiny and flag anything that looks wrong.
+        </div>
+      )}
+
       {guesses.length > 0 && (
         <div className="space-y-2">
           {guesses.map((g, i) => (

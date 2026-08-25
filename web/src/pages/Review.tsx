@@ -26,8 +26,17 @@ interface DiagnosisCaseAnswer {
   diagnosis: string;
   explanation: string;
 }
+interface QuizQuestionPrompt {
+  question: string;
+  choices: string[];
+  bloomLevel: string;
+}
+interface QuizQuestionAnswer {
+  correctChoice: string;
+  explanation: string;
+}
 
-/** Renders any reviewable item type as a simple {front, back} recall card. */
+/** Renders flip-card item types (self-graded recall) as a simple {front, back} pair. */
 function toFrontBack(item: ItemDTO): { front: string; back: string } | null {
   try {
     if (item.type === "FLASHCARD") {
@@ -39,10 +48,7 @@ function toFrontBack(item: ItemDTO): { front: string; back: string } | null {
     if (item.type === "DIAGNOSIS_CASE") {
       const p = JSON.parse(item.prompt) as DiagnosisCasePrompt;
       const a = JSON.parse(item.answerKey) as DiagnosisCaseAnswer;
-      return {
-        front: p.vignette,
-        back: `${a.diagnosis} — ${a.explanation}`,
-      };
+      return { front: p.vignette, back: `${a.diagnosis} — ${a.explanation}` };
     }
     return null;
   } catch {
@@ -59,6 +65,7 @@ export default function Review() {
   const [shownAt, setShownAt] = useState(Date.now());
   const [error, setError] = useState<string | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -74,11 +81,25 @@ export default function Review() {
   useEffect(() => {
     setShownAt(Date.now());
     setRevealed(false);
+    setSelectedChoice(null);
   }, [index]);
 
   const current = queue?.[index];
 
-  const parsed = useMemo(() => (current ? toFrontBack(current) : null), [current]);
+  const isQuiz = current?.type === "QUIZ_QUESTION";
+  const quiz = useMemo(() => {
+    if (!current || current.type !== "QUIZ_QUESTION") return null;
+    try {
+      return {
+        prompt: JSON.parse(current.prompt) as QuizQuestionPrompt,
+        answer: JSON.parse(current.answerKey) as QuizQuestionAnswer,
+      };
+    } catch {
+      return null;
+    }
+  }, [current]);
+
+  const parsed = useMemo(() => (current && !isQuiz ? toFrontBack(current) : null), [current, isQuiz]);
 
   async function grade(rating: Rating) {
     if (!current || !parsed) return;
@@ -92,6 +113,23 @@ export default function Review() {
       });
       setCompletedCount((c) => c + 1);
       setIndex((i) => i + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to submit");
+    }
+  }
+
+  async function chooseAnswer(choice: string) {
+    if (!current || !quiz || selectedChoice) return;
+    setSelectedChoice(choice);
+    const responseTimeMs = Date.now() - shownAt;
+    try {
+      await api.submitAttempt({
+        itemId: current.id,
+        selectedAnswer: choice,
+        responseTimeMs,
+        correct: choice === quiz.answer.correctChoice,
+      });
+      setCompletedCount((c) => c + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit");
     }
@@ -123,8 +161,54 @@ export default function Review() {
     );
   }
 
+  if (isQuiz && quiz) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-56px)] p-4 gap-4">
+        <div className="text-sm text-slate-400 text-center">
+          Today: {dueCount} reviews, {newCount} new · {index + 1} of {queue.length}
+        </div>
+        <div className="flex-1 flex flex-col justify-center gap-4 max-w-lg mx-auto w-full">
+          <div className="rounded-2xl bg-slate-800 p-6">
+            <p className="text-lg">{quiz.prompt.question}</p>
+          </div>
+          <div className="grid gap-2">
+            {quiz.prompt.choices.map((choice) => {
+              const isCorrect = choice === quiz.answer.correctChoice;
+              const isSelected = choice === selectedChoice;
+              const showColors = selectedChoice !== null;
+              return (
+                <button
+                  key={choice}
+                  onClick={() => chooseAnswer(choice)}
+                  disabled={selectedChoice !== null}
+                  className={`rounded-lg px-4 py-3 text-left ring-1 ${
+                    showColors && isCorrect
+                      ? "bg-emerald-900/40 ring-emerald-600"
+                      : showColors && isSelected
+                        ? "bg-red-900/40 ring-red-600"
+                        : "bg-slate-800 ring-slate-700"
+                  }`}
+                >
+                  {choice}
+                </button>
+              );
+            })}
+          </div>
+          {selectedChoice && (
+            <>
+              <p className="text-sm text-slate-300">{quiz.answer.explanation}</p>
+              <button onClick={() => setIndex((i) => i + 1)} className="w-full rounded-lg bg-slate-700 py-3 font-medium">
+                Next
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!parsed) {
-    // Non-flashcard item types render in their own module UIs (stages 2/5).
+    // Anatomy items render in their own module UI (stage 5).
     return <p className="p-6 text-slate-400">This item type isn't supported in the review UI yet.</p>;
   }
 

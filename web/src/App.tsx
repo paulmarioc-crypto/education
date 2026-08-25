@@ -1,11 +1,13 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import Review from "./pages/Review.js";
 import Diagnosis from "./pages/Diagnosis.js";
+import Quiz from "./pages/Quiz.js";
 import Progress from "./pages/Progress.js";
 
 const NAV_ITEMS = [
   { to: "/", label: "Review" },
   { to: "/diagnosis", label: "Diagnosis" },
+  { to: "/quiz", label: "Upload" },
   { to: "/progress", label: "Progress" },
 ];
 
@@ -16,6 +18,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Review />} />
           <Route path="/diagnosis" element={<Diagnosis />} />
+          <Route path="/quiz" element={<Quiz />} />
           <Route path="/progress" element={<Progress />} />
         </Routes>
       </main>

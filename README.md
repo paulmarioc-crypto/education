@@ -16,9 +16,21 @@ an intentional simplicity tradeoff for a personal project behind an
 unguessable `.vercel.app` link; if that stops being acceptable later, auth
 can be added back.
 
-Currently implemented (Stage 1 of the build order): the data model, FSRS
-spaced-repetition core, and a barebones flashcard review UI. The other
-modules (Diagnosis Game, Anatomy Guesser, Quiz Engine, mistake-diagnosis
+AI features (Diagnosis Game, Quiz upload) run on **free, open-weight models
+via Groq** (`openai/gpt-oss-120b` for text, `meta-llama/llama-4-scout` for
+vision) — a deliberate cost-vs-accuracy tradeoff: genuinely $0, but weaker
+medical reasoning than a hosted proprietary model. Diagnosis cases are
+grounded in live PubMed retrieval to offset this (real peer-reviewed sources
+cited, not just model recall); when no source is found, the app says so
+prominently rather than presenting unsourced content as verified. Requires
+`GROQ_API_KEY` (free, no credit card — sign up at
+[console.groq.com](https://console.groq.com)) set in Vercel's Environment
+Variables.
+
+Currently implemented (Stages 1-3 of the build order): the data model, FSRS
+spaced-repetition core, flashcard review, the Diagnosis Game, and Quiz Mode A
+(upload PDF/PPTX/DOCX/images → AI-generated questions). Remaining modules
+(Anatomy Guesser, topic-only quiz generation, diagnosis chat, mistake-diagnosis
 engine, gamification) land in later stages.
 
 ## Deploying changes

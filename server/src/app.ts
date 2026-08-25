@@ -5,6 +5,7 @@ import { attemptsRouter } from "./routes/attempts.js";
 import { conceptsRouter } from "./routes/concepts.js";
 import { itemsRouter } from "./routes/items.js";
 import { diagnosisRouter } from "./routes/diagnosis.js";
+import { quizRouter } from "./routes/quiz.js";
 
 // API-only Express app, with no app.listen() and no static file serving —
 // both the self-hosted entrypoint (index.ts) and the Vercel serverless
@@ -19,5 +20,6 @@ app.use("/api/attempts", attemptsRouter);
 app.use("/api/concepts", conceptsRouter);
 app.use("/api/items", itemsRouter);
 app.use("/api/diagnosis", diagnosisRouter);
+app.use("/api/quiz", quizRouter);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

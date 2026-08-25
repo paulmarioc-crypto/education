@@ -3,8 +3,8 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { normalizeMastery } from "../lib/mastery.js";
 import { recordAttempt } from "../lib/grading.js";
-import { generateDiagnosisCase, classifyGuess } from "../services/anthropic.js";
-import { searchPubMed } from "../services/pubmed.js";
+import { generateDiagnosisCase, classifyGuess } from "../services/llm.js";
+import { searchPubMedBroad } from "../services/pubmed.js";
 import type { DiagnosisCaseAnswer, DiagnosisCasePrompt } from "../lib/itemTypes.js";
 
 export const diagnosisRouter = Router();
@@ -63,7 +63,7 @@ diagnosisRouter.post("/new", async (_req, res) => {
   try {
     const topic = await pickTopic();
     const difficulty = await averageDiagnosisMastery();
-    const sources = await searchPubMed(`${topic.name} diagnosis clinical presentation`);
+    const sources = await searchPubMedBroad(topic.name);
     const generated = await generateDiagnosisCase({ topic: topic.name, difficulty, sources });
 
     let systemConcept = await prisma.conceptNode.findFirst({ where: { name: generated.organSystem, kind: "SYSTEM" } });

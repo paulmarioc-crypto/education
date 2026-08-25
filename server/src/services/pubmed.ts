@@ -7,6 +7,8 @@
 // failure path here returns [] and the caller falls back to ungrounded
 // generation with an explicit "no sources" instruction.
 
+import { stripXmlTags } from "../lib/xml.js";
+
 const EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
 export interface PubMedSource {
@@ -23,18 +25,6 @@ interface ESearchResponse {
 
 interface ESummaryResponse {
   result?: Record<string, { title?: string; fulljournalname?: string; source?: string; pubdate?: string }>;
-}
-
-function stripXmlTags(s: string): string {
-  return s
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#\d+;/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Parses efetch's abstract XML into {pmid -> abstract text}, tolerating shape drift. */
@@ -88,4 +78,18 @@ export async function searchPubMed(query: string, maxResults = 4): Promise<PubMe
     console.warn("PubMed retrieval failed, falling back to ungrounded generation:", err);
     return [];
   }
+}
+
+/**
+ * Tries a few query phrasings before giving up, so a topic isn't marked
+ * "ungrounded" just because the first specific phrasing didn't match —
+ * meaningfully reduces how often generation falls back to unsourced content.
+ */
+export async function searchPubMedBroad(topic: string, maxResults = 4): Promise<PubMedSource[]> {
+  const queries = [`${topic} diagnosis clinical presentation`, `${topic} case report`, topic];
+  for (const query of queries) {
+    const results = await searchPubMed(query, maxResults);
+    if (results.length > 0) return results;
+  }
+  return [];
 }

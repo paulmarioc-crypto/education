@@ -82,6 +82,12 @@ export interface DiagnosisGuessResponse {
   answer?: DiagnosisAnswerDTO;
 }
 
+export interface QuizUploadResponse {
+  uploadId: string;
+  questionsCreated: number;
+  concepts: string[];
+}
+
 export const api = {
   sessionToday: () => request<SessionTodayDTO>("/session/today"),
   submitAttempt: (body: {
@@ -108,4 +114,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ responseTimeMs }),
     }),
+  uploadQuizFile: async (file: File): Promise<QuizUploadResponse> => {
+    const form = new FormData();
+    form.append("file", file);
+    // No Content-Type header here — the browser sets the multipart boundary
+    // itself; setting it manually (like `request()` does for JSON) breaks it.
+    const res = await fetch(`${BASE}/quiz/upload`, { method: "POST", body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, body?.error ?? res.statusText);
+    }
+    return res.json() as Promise<QuizUploadResponse>;
+  },
 };
