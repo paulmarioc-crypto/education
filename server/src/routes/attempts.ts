@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { cardToRowData, newCard, Rating, rowToCard, schedule } from "../lib/fsrs.js";
-import { updateMasteryForItem } from "../lib/mastery.js";
+import { Rating } from "../lib/fsrs.js";
+import { recordAttempt } from "../lib/grading.js";
 
 export const attemptsRouter = Router();
 
@@ -30,34 +30,17 @@ attemptsRouter.post("/", async (req, res) => {
   const item = await prisma.item.findUnique({ where: { id: itemId } });
   if (!item) return res.status(404).json({ error: "item not found" });
 
-  const grade = rating ?? (correctIn ? Rating.Good : Rating.Again);
   const correct = rating !== undefined ? rating !== Rating.Again : (correctIn as boolean);
 
-  const now = new Date();
-  const existingState = await prisma.reviewState.findUnique({ where: { itemId } });
-  const card = existingState ? rowToCard(existingState) : newCard(now);
-
-  const { card: nextCard } = schedule(card, now, grade);
-  const rowData = cardToRowData(nextCard);
-
-  await prisma.$transaction([
-    prisma.reviewState.upsert({
-      where: { itemId },
-      create: { itemId, ...rowData },
-      update: rowData,
-    }),
-    prisma.attempt.create({
-      data: {
-        itemId,
-        correct,
-        selectedAnswer,
-        responseTimeMs,
-        module: item.module,
-      },
-    }),
-  ]);
-
-  await updateMasteryForItem(itemId, correct, responseTimeMs, item.difficulty);
+  const rowData = await recordAttempt({
+    itemId,
+    correct,
+    selectedAnswer,
+    responseTimeMs,
+    module: item.module,
+    difficulty: item.difficulty,
+    grade: rating,
+  });
 
   res.json({ correct, due: rowData.due, stability: rowData.stability, state: rowData.state });
 });

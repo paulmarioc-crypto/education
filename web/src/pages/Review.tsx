@@ -15,6 +15,40 @@ interface FlashcardPrompt {
 interface FlashcardAnswer {
   back: string;
 }
+interface DiagnosisCasePrompt {
+  vignette: string;
+  history: string;
+  exam: string;
+  labs: string;
+  imaging: string;
+}
+interface DiagnosisCaseAnswer {
+  diagnosis: string;
+  explanation: string;
+}
+
+/** Renders any reviewable item type as a simple {front, back} recall card. */
+function toFrontBack(item: ItemDTO): { front: string; back: string } | null {
+  try {
+    if (item.type === "FLASHCARD") {
+      return {
+        front: (JSON.parse(item.prompt) as FlashcardPrompt).front,
+        back: (JSON.parse(item.answerKey) as FlashcardAnswer).back,
+      };
+    }
+    if (item.type === "DIAGNOSIS_CASE") {
+      const p = JSON.parse(item.prompt) as DiagnosisCasePrompt;
+      const a = JSON.parse(item.answerKey) as DiagnosisCaseAnswer;
+      return {
+        front: p.vignette,
+        back: `${a.diagnosis} — ${a.explanation}`,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export default function Review() {
   const [queue, setQueue] = useState<ItemDTO[] | null>(null);
@@ -44,18 +78,7 @@ export default function Review() {
 
   const current = queue?.[index];
 
-  const parsed = useMemo(() => {
-    if (!current) return null;
-    if (current.type !== "FLASHCARD") return null;
-    try {
-      return {
-        front: (JSON.parse(current.prompt) as FlashcardPrompt).front,
-        back: (JSON.parse(current.answerKey) as FlashcardAnswer).back,
-      };
-    } catch {
-      return null;
-    }
-  }, [current]);
+  const parsed = useMemo(() => (current ? toFrontBack(current) : null), [current]);
 
   async function grade(rating: Rating) {
     if (!current || !parsed) return;

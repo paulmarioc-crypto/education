@@ -51,6 +51,37 @@ export interface SessionTodayDTO {
   counts: { due: number; new: number; weak: number };
 }
 
+export interface DiagnosisCasePromptDTO {
+  vignette: string;
+  history: string;
+  exam: string;
+  labs: string;
+  imaging: string;
+}
+
+export interface DiagnosisAnswerDTO {
+  diagnosis: string;
+  organSystem: string;
+  acuity: string;
+  keyDiscriminators: string[];
+  explanation: string;
+}
+
+export interface DiagnosisNewResponse {
+  itemId: string;
+  prompt: DiagnosisCasePromptDTO;
+  citations: { pmid: string; title: string }[];
+  groundedInSources: boolean;
+}
+
+export interface DiagnosisGuessResponse {
+  correct: boolean;
+  organSystemMatch: boolean;
+  acuityMatch: boolean;
+  hint: string;
+  answer?: DiagnosisAnswerDTO;
+}
+
 export const api = {
   sessionToday: () => request<SessionTodayDTO>("/session/today"),
   submitAttempt: (body: {
@@ -66,4 +97,15 @@ export const api = {
   concepts: () => request<ConceptDTO[]>("/concepts"),
   flagItem: (id: string, flagged: boolean, note?: string) =>
     request<ItemDTO>(`/items/${id}/flag`, { method: "POST", body: JSON.stringify({ flagged, note }) }),
+  newDiagnosisCase: () => request<DiagnosisNewResponse>("/diagnosis/new", { method: "POST" }),
+  guessDiagnosis: (itemId: string, guess: string, responseTimeMs: number) =>
+    request<DiagnosisGuessResponse>("/diagnosis/guess", {
+      method: "POST",
+      body: JSON.stringify({ itemId, guess, responseTimeMs }),
+    }),
+  revealDiagnosis: (itemId: string, responseTimeMs: number) =>
+    request<DiagnosisAnswerDTO>(`/diagnosis/${itemId}/reveal`, {
+      method: "POST",
+      body: JSON.stringify({ responseTimeMs }),
+    }),
 };
