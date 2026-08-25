@@ -82,10 +82,14 @@ export interface DiagnosisGuessResponse {
   answer?: DiagnosisAnswerDTO;
 }
 
-export interface QuizUploadResponse {
-  uploadId: string;
+export interface QuizGenerateResponse {
   questionsCreated: number;
   concepts: string[];
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export const api = {
@@ -114,7 +118,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ responseTimeMs }),
     }),
-  uploadQuizFile: async (file: File): Promise<QuizUploadResponse> => {
+  uploadQuizFile: async (file: File): Promise<QuizGenerateResponse> => {
     const form = new FormData();
     form.append("file", file);
     // No Content-Type header here — the browser sets the multipart boundary
@@ -124,6 +128,13 @@ export const api = {
       const body = await res.json().catch(() => ({}));
       throw new ApiError(res.status, body?.error ?? res.statusText);
     }
-    return res.json() as Promise<QuizUploadResponse>;
+    return res.json() as Promise<QuizGenerateResponse>;
   },
+  generateQuizFromTopic: (topic: string) =>
+    request<QuizGenerateResponse>("/quiz/topic", { method: "POST", body: JSON.stringify({ topic }) }),
+  chatAboutCase: (itemId: string, question: string, history: ChatMessage[]) =>
+    request<{ answer: string }>(`/diagnosis/${itemId}/chat`, {
+      method: "POST",
+      body: JSON.stringify({ question, history }),
+    }),
 };

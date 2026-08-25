@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { normalizeMastery } from "../lib/mastery.js";
 import { recordAttempt } from "../lib/grading.js";
-import { generateDiagnosisCase, classifyGuess } from "../services/llm.js";
+import { generateDiagnosisCase, classifyGuess, chatAboutCase } from "../services/llm.js";
 import { searchPubMedBroad } from "../services/pubmed.js";
 import type { DiagnosisCaseAnswer, DiagnosisCasePrompt } from "../lib/itemTypes.js";
 
@@ -175,4 +175,39 @@ diagnosisRouter.post("/:itemId/reveal", async (req, res) => {
   }
 
   res.json(JSON.parse(item.answerKey) as DiagnosisCaseAnswer);
+});
+
+const chatSchema = z.object({
+  question: z.string().min(1).max(1000),
+  history: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+    .max(20)
+    .optional(),
+});
+
+// Scoped Q&A about a case, available once it's been resolved (per spec: "After
+// I guess (right or wrong), open a chat panel"). Not graded — exploratory only,
+// so it doesn't touch Attempt/FSRS/mastery.
+diagnosisRouter.post("/:itemId/chat", async (req, res) => {
+  const parsed = chatSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const item = await prisma.item.findUnique({ where: { id: req.params.itemId } });
+  if (!item || item.type !== "DIAGNOSIS_CASE") return res.status(404).json({ error: "case not found" });
+
+  const prompt = JSON.parse(item.prompt) as DiagnosisCasePrompt;
+  const answerKey = JSON.parse(item.answerKey) as DiagnosisCaseAnswer;
+  const caseContext =
+    `Vignette: ${prompt.vignette}\nHistory: ${prompt.history}\nExam: ${prompt.exam}\n` +
+    `Labs: ${prompt.labs}\nImaging: ${prompt.imaging}\n\n` +
+    `Correct diagnosis: ${answerKey.diagnosis}\nOrgan system: ${answerKey.organSystem}\nAcuity: ${answerKey.acuity}\n` +
+    `Key discriminators: ${answerKey.keyDiscriminators.join("; ")}\nExplanation: ${answerKey.explanation}`;
+
+  try {
+    const answer = await chatAboutCase({ caseContext, history: parsed.data.history ?? [], question: parsed.data.question });
+    res.json({ answer });
+  } catch (err) {
+    console.error("POST /api/diagnosis/:itemId/chat failed:", err);
+    res.status(502).json({ error: "Could not answer that right now. Please try again." });
+  }
 });

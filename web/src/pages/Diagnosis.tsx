@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, ApiError, type DiagnosisAnswerDTO, type DiagnosisCasePromptDTO } from "../lib/api.js";
+import { api, ApiError, type ChatMessage, type DiagnosisAnswerDTO, type DiagnosisCasePromptDTO } from "../lib/api.js";
 
 interface GuessRecord {
   text: string;
@@ -22,12 +22,18 @@ export default function Diagnosis() {
   const [answer, setAnswer] = useState<DiagnosisAnswerDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+
   async function startCase() {
     setLoading(true);
     setError(null);
     setAnswer(null);
     setGuesses([]);
     setGuess("");
+    setChatMessages([]);
+    setChatInput("");
     try {
       const res = await api.newDiagnosisCase();
       setItemId(res.itemId);
@@ -56,6 +62,23 @@ export default function Diagnosis() {
       setError(e instanceof ApiError ? e.message : "Failed to grade that guess");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function sendChat(e: React.FormEvent) {
+    e.preventDefault();
+    if (!itemId || !chatInput.trim() || chatSending) return;
+    const question = chatInput.trim();
+    setChatInput("");
+    setChatMessages((m) => [...m, { role: "user", content: question }]);
+    setChatSending(true);
+    try {
+      const res = await api.chatAboutCase(itemId, question, chatMessages);
+      setChatMessages((m) => [...m, { role: "assistant", content: res.answer }]);
+    } catch (e) {
+      setChatMessages((m) => [...m, { role: "assistant", content: e instanceof ApiError ? `(${e.message})` : "Couldn't get an answer — try again." }]);
+    } finally {
+      setChatSending(false);
     }
   }
 
@@ -157,6 +180,42 @@ export default function Diagnosis() {
           <p className="text-lg font-semibold text-emerald-300">{answer.diagnosis}</p>
           <p className="text-sm text-slate-300">{answer.explanation}</p>
           <p className="text-xs text-slate-500">Key discriminators: {answer.keyDiscriminators.join("; ")}</p>
+        </div>
+      )}
+
+      {answer && (
+        <div className="rounded-2xl bg-slate-800/60 p-4 space-y-3">
+          <p className="text-sm uppercase tracking-wide text-slate-400">Ask about this case</p>
+          {chatMessages.length > 0 && (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {chatMessages.map((m, i) => (
+                <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
+                  <p
+                    className={`inline-block rounded-lg px-3 py-2 text-sm max-w-[85%] ${
+                      m.role === "user" ? "bg-sky-700 text-white" : "bg-slate-700 text-slate-100"
+                    }`}
+                  >
+                    {m.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={sendChat} className="flex gap-2">
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Why did the labs look like that?"
+              className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-sm outline-none ring-1 ring-slate-700 focus:ring-sky-500"
+            />
+            <button
+              type="submit"
+              disabled={chatSending || !chatInput.trim()}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {chatSending ? "…" : "Ask"}
+            </button>
+          </form>
         </div>
       )}
 

@@ -1,8 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
+import { z } from "zod";
+import type { ItemSource } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { normalizeMastery } from "../lib/mastery.js";
 import { detectUploadKind, extractText } from "../services/extraction.js";
-import { generateQuizFromImage, generateQuizFromText, type GeneratedQuizQuestion } from "../services/llm.js";
+import { generateQuizFromImage, generateQuizFromText, generateQuizFromTopic, type GeneratedQuizQuestion } from "../services/llm.js";
 import type { QuizQuestionAnswer, QuizQuestionPrompt } from "../lib/itemTypes.js";
 
 export const quizRouter = Router();
@@ -11,7 +14,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 const IMAGE_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 
-async function persistQuestions(questions: GeneratedQuizQuestion[], uploadId: string) {
+async function persistQuestions(questions: GeneratedQuizQuestion[], source: ItemSource, sourceRef: string | null) {
   let created = 0;
   const conceptsSeen = new Set<string>();
 
@@ -38,8 +41,8 @@ async function persistQuestions(questions: GeneratedQuizQuestion[], uploadId: st
         prompt: JSON.stringify(prompt),
         answerKey: JSON.stringify(answerKey),
         difficulty: Math.max(0, Math.min(1, q.difficulty)),
-        source: "AI_UPLOAD",
-        sourceRef: uploadId,
+        source,
+        sourceRef,
         concepts: { create: [{ conceptId: concept.id }] },
       },
     });
@@ -80,12 +83,38 @@ quizRouter.post("/upload", upload.single("file"), async (req, res) => {
       await prisma.upload.update({ where: { id: uploadRow.id }, data: { status: "done", extractedText: text.slice(0, 5000) } });
     }
 
-    const { created, concepts } = await persistQuestions(questions, uploadRow.id);
+    const { created, concepts } = await persistQuestions(questions, "AI_UPLOAD", uploadRow.id);
     res.json({ uploadId: uploadRow.id, questionsCreated: created, concepts });
   } catch (err) {
     console.error("POST /api/quiz/upload failed:", err);
     await prisma.upload.update({ where: { id: uploadRow.id }, data: { status: "failed" } });
     const message = err instanceof Error ? err.message : "Could not process this file. Please try again.";
     res.status(502).json({ error: message });
+  }
+});
+
+const topicSchema = z.object({ topic: z.string().min(2).max(200) });
+
+quizRouter.post("/topic", async (req, res) => {
+  const parsed = topicSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "please enter a topic (2-200 characters)" });
+  const { topic } = parsed.data;
+
+  try {
+    // Use mastery from any existing concept whose name matches the topic
+    // (loosely) if there's prior signal; otherwise start at a diagnostic
+    // difficulty, per the spec for pre-studying an unfamiliar topic.
+    const related = await prisma.masteryScore.findMany({
+      where: { concept: { name: { contains: topic, mode: "insensitive" } } },
+    });
+    const difficulty =
+      related.length > 0 ? related.reduce((sum, r) => sum + normalizeMastery(r.score), 0) / related.length : 0.35;
+
+    const questions = await generateQuizFromTopic(topic, difficulty);
+    const { created, concepts } = await persistQuestions(questions, "AI_TOPIC", topic);
+    res.json({ questionsCreated: created, concepts });
+  } catch (err) {
+    console.error("POST /api/quiz/topic failed:", err);
+    res.status(502).json({ error: "Could not generate questions for that topic right now. Please try again." });
   }
 });

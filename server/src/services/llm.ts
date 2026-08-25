@@ -277,3 +277,58 @@ export async function generateQuizFromImage(base64: string, mediaType: "image/jp
   });
   return extractQuestions(response);
 }
+
+/** Mode B: topic-only, no uploaded material — calibrated to current mastery in/near the topic. */
+export async function generateQuizFromTopic(topic: string, difficulty: number): Promise<GeneratedQuizQuestion[]> {
+  const response = await client.chat.completions.create({
+    model: TEXT_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a med-school/pre-med quiz writer helping a student pre-study a topic before it's covered in " +
+          "class. Identify 3-6 key concepts within the given topic, then write 2-3 multiple-choice questions per " +
+          "concept spanning Bloom's taxonomy (recall, application, analysis). Each question needs exactly 4 " +
+          "choices with exactly one correct answer — make distractors plausible, not obviously wrong. Calibrate " +
+          "overall difficulty to the level given.",
+      },
+      {
+        role: "user",
+        content: `Topic: "${topic}"\nTarget difficulty: ${difficultyLabel(difficulty)}.`,
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: { name: "submit_quiz", description: "Submit the generated quiz questions.", parameters: QUIZ_PARAMETERS, strict: true },
+      },
+    ],
+    tool_choice: { type: "function", function: { name: "submit_quiz" } },
+  });
+  return extractQuestions(response);
+}
+
+/** Scoped Q&A about a resolved diagnosis case — pathophysiology, labs, differentials, etc. */
+export async function chatAboutCase(params: {
+  caseContext: string;
+  history: { role: "user" | "assistant"; content: string }[];
+  question: string;
+}): Promise<string> {
+  const response = await client.chat.completions.create({
+    model: TEXT_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a study companion answering follow-up questions about a diagnosis case a pre-med/medical " +
+          "student just worked through. Answer using the case details below and your medical knowledge. Keep " +
+          "answers focused and study-relevant (a few sentences to a short paragraph, not an essay). This is a " +
+          "study aid, not clinical guidance — if asked something outside the scope of studying this case, say so.\n\n" +
+          `Case details:\n${params.caseContext}`,
+      },
+      ...params.history,
+      { role: "user", content: params.question },
+    ],
+  });
+  return response.choices[0]?.message.content ?? "I couldn't come up with an answer to that — try rephrasing?";
+}
