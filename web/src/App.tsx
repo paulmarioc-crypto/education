@@ -1,12 +1,14 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import Review from "./pages/Review.js";
 import Diagnosis from "./pages/Diagnosis.js";
+import Anatomy from "./pages/Anatomy.js";
 import Quiz from "./pages/Quiz.js";
 import Progress from "./pages/Progress.js";
 
 const NAV_ITEMS = [
   { to: "/", label: "Review" },
   { to: "/diagnosis", label: "Diagnosis" },
+  { to: "/anatomy", label: "Anatomy" },
   { to: "/quiz", label: "Upload" },
   { to: "/progress", label: "Progress" },
 ];
@@ -18,6 +20,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Review />} />
           <Route path="/diagnosis" element={<Diagnosis />} />
+          <Route path="/anatomy" element={<Anatomy />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/progress" element={<Progress />} />
         </Routes>
@@ -29,7 +32,7 @@ export default function App() {
             to={to}
             end={to === "/"}
             className={({ isActive }) =>
-              `flex-1 flex items-center justify-center text-sm ${isActive ? "text-sky-400" : "text-slate-400"}`
+              `flex-1 flex items-center justify-center text-xs sm:text-sm ${isActive ? "text-sky-400" : "text-slate-400"}`
             }
           >
             {label}

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { prisma } from "./lib/prisma.js";
-import type { FlashcardAnswer, FlashcardPrompt } from "./lib/itemTypes.js";
+import type { AnatomyIdAnswer, AnatomyIdPrompt, FlashcardAnswer, FlashcardPrompt } from "./lib/itemTypes.js";
 
 // A small starter deck so Stage 1 has something to review end-to-end.
 // Real content arrives via Quiz Mode A/B (stages 3-4) and the Diagnosis/
@@ -131,13 +131,99 @@ async function main() {
     });
   }
 
+  // Anatomy Guesser starter content. Images are public-domain plates from
+  // Gray's Anatomy (1918) hosted on Wikimedia Commons, linked via the
+  // Special:FilePath hotlink mechanism (stable regardless of the file's
+  // underlying storage path). A deliberately small, single-subject set —
+  // see the note in the Anatomy Guesser build message about why.
+  const skeletal = await prisma.conceptNode.upsert({
+    where: { id: "seed-skeletal" },
+    create: { id: "seed-skeletal", name: "Skeletal System", kind: "SYSTEM" },
+    update: {},
+  });
+  const longBones = await prisma.conceptNode.upsert({
+    where: { id: "seed-long-bones" },
+    create: { id: "seed-long-bones", name: "Long Bones", kind: "STRUCTURE", parentId: skeletal.id },
+    update: {},
+  });
+  const handSkeleton = await prisma.conceptNode.upsert({
+    where: { id: "seed-hand-skeleton" },
+    create: { id: "seed-hand-skeleton", name: "Bones of the Hand", kind: "STRUCTURE", parentId: skeletal.id },
+    update: {},
+  });
+
+  const COMMONS = "https://commons.wikimedia.org/wiki/Special:FilePath";
+  const anatomyItems: Array<{
+    id: string;
+    imageFile: string;
+    choices: string[];
+    correctChoice: string;
+    conceptId: string;
+    difficulty: number;
+  }> = [
+    {
+      id: "seed-anatomy-femur",
+      imageFile: "Femur.png",
+      choices: ["Femur", "Tibia", "Humerus", "Fibula"],
+      correctChoice: "Femur",
+      conceptId: longBones.id,
+      difficulty: 0.2,
+    },
+    {
+      id: "seed-anatomy-humerus",
+      imageFile: "Humerus_-_lateral_view.png",
+      choices: ["Humerus", "Radius", "Ulna", "Femur"],
+      correctChoice: "Humerus",
+      conceptId: longBones.id,
+      difficulty: 0.2,
+    },
+    {
+      id: "seed-anatomy-hand-region",
+      imageFile: "Gray219.png",
+      choices: ["Bones of the hand", "Bones of the foot", "Bones of the skull", "Vertebral column"],
+      correctChoice: "Bones of the hand",
+      conceptId: handSkeleton.id,
+      difficulty: 0.4,
+    },
+  ];
+
+  for (const a of anatomyItems) {
+    const prompt: AnatomyIdPrompt = {
+      imageUrl: `${COMMONS}/${a.imageFile}?width=800`,
+      pinX: 0.5,
+      pinY: 0.5,
+      choices: a.choices,
+    };
+    const answerKey: AnatomyIdAnswer = { correctChoice: a.correctChoice };
+
+    const item = await prisma.item.upsert({
+      where: { id: a.id },
+      create: {
+        id: a.id,
+        type: "ANATOMY_ID",
+        module: "ANATOMY",
+        prompt: JSON.stringify(prompt),
+        answerKey: JSON.stringify(answerKey),
+        difficulty: a.difficulty,
+        source: "SEED",
+      },
+      update: {},
+    });
+
+    await prisma.itemConcept.upsert({
+      where: { itemId_conceptId: { itemId: item.id, conceptId: a.conceptId } },
+      create: { itemId: item.id, conceptId: a.conceptId },
+      update: {},
+    });
+  }
+
   await prisma.streakState.upsert({
     where: { id: 1 },
     create: { id: 1 },
     update: {},
   });
 
-  console.log(`Seeded ${cards.length} flashcards across ${5} concepts.`);
+  console.log(`Seeded ${cards.length} flashcards and ${anatomyItems.length} anatomy items.`);
 }
 
 main()

@@ -137,4 +137,5 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ question, history }),
     }),
+  nextAnatomyItem: () => request<ItemDTO>("/anatomy/next"),
 };
