@@ -172,6 +172,73 @@ async function main() {
     create: { id: "seed-concept-hand-bones", name: "Bones of the hand", kind: "STRUCTURE", parentId: handSkeleton.id },
     update: {},
   });
+  const axialSkeleton = await prisma.conceptNode.upsert({
+    where: { id: "seed-axial-skeleton" },
+    create: { id: "seed-axial-skeleton", name: "Axial Skeleton", kind: "REGION", parentId: skeletal.id },
+    update: {},
+  });
+  const girdleBones = await prisma.conceptNode.upsert({
+    where: { id: "seed-girdle-bones" },
+    create: { id: "seed-girdle-bones", name: "Girdle Bones", kind: "REGION", parentId: skeletal.id },
+    update: {},
+  });
+  const footSkeleton = await prisma.conceptNode.upsert({
+    where: { id: "seed-foot-skeleton" },
+    create: { id: "seed-foot-skeleton", name: "Bones of the Foot", kind: "STRUCTURE", parentId: skeletal.id },
+    update: {},
+  });
+
+  // Progressive full-body skeletal set: large, unmistakable structures first
+  // (skull, vertebral column, hip bone — low difficulty), then paired
+  // forearm/leg bones, then smaller/finer bones (clavicle, patella, foot) at
+  // higher difficulty — same "start broad, narrow to fine distinctions"
+  // scaling as the existing femur/humerus/hand items, just covering the rest
+  // of the body now instead of only the upper limb.
+  const skullConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-skull" },
+    create: { id: "seed-concept-skull", name: "Skull", kind: "STRUCTURE", parentId: axialSkeleton.id },
+    update: {},
+  });
+  const vertebralColumnConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-vertebral-column" },
+    create: { id: "seed-concept-vertebral-column", name: "Vertebral column", kind: "STRUCTURE", parentId: axialSkeleton.id },
+    update: {},
+  });
+  const hipBoneConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-hip-bone" },
+    create: { id: "seed-concept-hip-bone", name: "Hip bone", kind: "STRUCTURE", parentId: girdleBones.id },
+    update: {},
+  });
+  const scapulaConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-scapula" },
+    create: { id: "seed-concept-scapula", name: "Scapula", kind: "STRUCTURE", parentId: girdleBones.id },
+    update: {},
+  });
+  const clavicleConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-clavicle" },
+    create: { id: "seed-concept-clavicle", name: "Clavicle", kind: "STRUCTURE", parentId: girdleBones.id },
+    update: {},
+  });
+  const forearmBonesConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-forearm-bones" },
+    create: { id: "seed-concept-forearm-bones", name: "Radius and ulna", kind: "STRUCTURE", parentId: longBones.id },
+    update: {},
+  });
+  const legBonesConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-leg-bones" },
+    create: { id: "seed-concept-leg-bones", name: "Tibia and fibula", kind: "STRUCTURE", parentId: longBones.id },
+    update: {},
+  });
+  const patellaConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-patella" },
+    create: { id: "seed-concept-patella", name: "Patella", kind: "STRUCTURE", parentId: longBones.id },
+    update: {},
+  });
+  const footBonesConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-foot-bones" },
+    create: { id: "seed-concept-foot-bones", name: "Bones of the foot", kind: "STRUCTURE", parentId: footSkeleton.id },
+    update: {},
+  });
 
   const COMMONS = "https://commons.wikimedia.org/wiki/Special:FilePath";
   const anatomyItems: Array<{
@@ -204,6 +271,78 @@ async function main() {
       choices: ["Bones of the hand", "Bones of the foot", "Bones of the skull", "Vertebral column"],
       correctChoice: "Bones of the hand",
       conceptId: handBonesConcept.id,
+      difficulty: 0.4,
+    },
+    {
+      id: "seed-anatomy-skull",
+      imageFile: "Gray188.png",
+      choices: ["Skull", "Mandible", "Vertebral column", "Hip bone"],
+      correctChoice: "Skull",
+      conceptId: skullConcept.id,
+      difficulty: 0.15,
+    },
+    {
+      id: "seed-anatomy-vertebral-column",
+      imageFile: "Gray_111_-_Vertebral_column-coloured.png",
+      choices: ["Vertebral column", "Sternum", "Rib cage", "Hip bone"],
+      correctChoice: "Vertebral column",
+      conceptId: vertebralColumnConcept.id,
+      difficulty: 0.2,
+    },
+    {
+      id: "seed-anatomy-hip-bone",
+      imageFile: "Gray235.png",
+      choices: ["Hip bone", "Scapula", "Skull", "Sternum"],
+      correctChoice: "Hip bone",
+      conceptId: hipBoneConcept.id,
+      difficulty: 0.25,
+    },
+    {
+      id: "seed-anatomy-scapula",
+      imageFile: "Scapula_-_posterior_view.png",
+      choices: ["Scapula", "Hip bone", "Patella", "Clavicle"],
+      correctChoice: "Scapula",
+      conceptId: scapulaConcept.id,
+      difficulty: 0.35,
+    },
+    {
+      id: "seed-anatomy-clavicle",
+      imageFile: "Gray201.png",
+      choices: ["Clavicle", "Scapula", "Radius and ulna", "Patella"],
+      correctChoice: "Clavicle",
+      conceptId: clavicleConcept.id,
+      difficulty: 0.35,
+    },
+    {
+      id: "seed-anatomy-forearm-bones",
+      imageFile: "Radius_and_Ulna.jpg",
+      choices: ["Radius and ulna", "Tibia and fibula", "Humerus", "Femur"],
+      correctChoice: "Radius and ulna",
+      conceptId: forearmBonesConcept.id,
+      difficulty: 0.4,
+    },
+    {
+      id: "seed-anatomy-leg-bones",
+      imageFile: "811_Tibia_and_fibula.jpg",
+      choices: ["Tibia and fibula", "Radius and ulna", "Femur", "Humerus"],
+      correctChoice: "Tibia and fibula",
+      conceptId: legBonesConcept.id,
+      difficulty: 0.4,
+    },
+    {
+      id: "seed-anatomy-patella",
+      imageFile: "Gray256.png",
+      choices: ["Patella", "Clavicle", "Bones of the foot", "Bones of the hand"],
+      correctChoice: "Patella",
+      conceptId: patellaConcept.id,
+      difficulty: 0.5,
+    },
+    {
+      id: "seed-anatomy-foot-bones",
+      imageFile: "Gray268.png",
+      choices: ["Bones of the foot", "Bones of the hand", "Vertebral column", "Hip bone"],
+      correctChoice: "Bones of the foot",
+      conceptId: footBonesConcept.id,
       difficulty: 0.4,
     },
   ];

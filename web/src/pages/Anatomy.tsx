@@ -135,7 +135,7 @@ export default function Anatomy() {
       )}
 
       <p className="text-xs text-slate-500 text-center">
-        Image: Gray's Anatomy (1918), public domain, via Wikimedia Commons.
+        Image: public-domain or Creative Commons–licensed anatomical illustration via Wikimedia Commons.
       </p>
     </div>
   );
