@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { normalizeMastery } from "../lib/mastery.js";
 import { recordAttempt } from "../lib/grading.js";
+import { detectAndRecordConfusion } from "../lib/confusion.js";
 import { generateDiagnosisCase, classifyGuess, chatAboutCase } from "../services/llm.js";
 import { searchPubMedBroad } from "../services/pubmed.js";
 import type { DiagnosisCaseAnswer, DiagnosisCasePrompt } from "../lib/itemTypes.js";
@@ -123,7 +124,7 @@ diagnosisRouter.post("/guess", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { itemId, guess, responseTimeMs } = parsed.data;
 
-  const item = await prisma.item.findUnique({ where: { id: itemId } });
+  const item = await prisma.item.findUnique({ where: { id: itemId }, include: { concepts: true } });
   if (!item || item.type !== "DIAGNOSIS_CASE") return res.status(404).json({ error: "case not found" });
   const answerKey = JSON.parse(item.answerKey) as DiagnosisCaseAnswer;
 
@@ -144,6 +145,7 @@ diagnosisRouter.post("/guess", async (req, res) => {
   // Only the first guess on a case grades it (standard spaced-repetition
   // convention) — later guesses in the same round are a learning aid.
   const alreadyGraded = (await prisma.attempt.count({ where: { itemId } })) > 0;
+  let confusionNote: string | undefined;
   if (!alreadyGraded) {
     await recordAttempt({
       itemId,
@@ -153,9 +155,26 @@ diagnosisRouter.post("/guess", async (req, res) => {
       module: "DIAGNOSIS",
       difficulty: item.difficulty,
     });
+
+    if (!feedback.correct) {
+      const correctConceptId = item.concepts[0]?.conceptId;
+      const guessedConcept = await prisma.conceptNode.findFirst({
+        where: { kind: "DIAGNOSIS", name: { equals: guess, mode: "insensitive" } },
+      });
+      if (correctConceptId) {
+        const confusion = await detectAndRecordConfusion({
+          correctConceptId,
+          correctLabel: answerKey.diagnosis,
+          guessedConceptId: guessedConcept?.id ?? null,
+          guessedLabel: guess,
+          context: "diagnosis game — guessing a diagnosis from a case vignette",
+        });
+        confusionNote = confusion?.explanation;
+      }
+    }
   }
 
-  res.json({ ...feedback, answer: feedback.correct ? answerKey : undefined });
+  res.json({ ...feedback, answer: feedback.correct ? answerKey : undefined, confusionNote });
 });
 
 diagnosisRouter.post("/:itemId/reveal", async (req, res) => {

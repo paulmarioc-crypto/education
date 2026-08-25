@@ -32,6 +32,7 @@ enum ItemSource {
   MANUAL
   AI_UPLOAD
   AI_TOPIC
+  AI_RETEST
 }
 
 enum Module {

@@ -1,6 +1,10 @@
 import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { normalizeMastery } from "../lib/mastery.js";
+import { recordAttempt } from "../lib/grading.js";
+import { detectAndRecordConfusion } from "../lib/confusion.js";
+import type { AnatomyIdAnswer } from "../lib/itemTypes.js";
 
 export const anatomyRouter = Router();
 
@@ -34,4 +38,51 @@ anatomyRouter.get("/next", async (_req, res) => {
   const item = sorted[Math.floor(Math.random() * Math.min(3, sorted.length))];
 
   res.json(item);
+});
+
+const attemptSchema = z.object({
+  itemId: z.string().min(1),
+  selectedChoice: z.string().min(1),
+  responseTimeMs: z.number().int().min(0),
+});
+
+anatomyRouter.post("/attempt", async (req, res) => {
+  const parsed = attemptSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { itemId, selectedChoice, responseTimeMs } = parsed.data;
+
+  const item = await prisma.item.findUnique({ where: { id: itemId }, include: { concepts: true } });
+  if (!item || item.type !== "ANATOMY_ID") return res.status(404).json({ error: "item not found" });
+
+  const answerKey = JSON.parse(item.answerKey) as AnatomyIdAnswer;
+  const correct = selectedChoice === answerKey.correctChoice;
+
+  await recordAttempt({
+    itemId,
+    correct,
+    selectedAnswer: selectedChoice,
+    responseTimeMs,
+    module: "ANATOMY",
+    difficulty: item.difficulty,
+  });
+
+  let confusionNote: string | undefined;
+  if (!correct) {
+    const correctConceptId = item.concepts[0]?.conceptId;
+    const guessedConcept = await prisma.conceptNode.findFirst({
+      where: { kind: "STRUCTURE", name: { equals: selectedChoice, mode: "insensitive" } },
+    });
+    if (correctConceptId) {
+      const confusion = await detectAndRecordConfusion({
+        correctConceptId,
+        correctLabel: answerKey.correctChoice,
+        guessedConceptId: guessedConcept?.id ?? null,
+        guessedLabel: selectedChoice,
+        context: "anatomy structure identification game",
+      });
+      confusionNote = confusion?.explanation;
+    }
+  }
+
+  res.json({ correct, confusionNote });
 });

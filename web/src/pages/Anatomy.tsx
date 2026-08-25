@@ -18,11 +18,13 @@ export default function Anatomy() {
   const [shownAt, setShownAt] = useState(Date.now());
   const [selected, setSelected] = useState<string | null>(null);
   const [rounds, setRounds] = useState(0);
+  const [confusionNote, setConfusionNote] = useState<string | null>(null);
 
   async function loadNext() {
     setLoading(true);
     setError(null);
     setSelected(null);
+    setConfusionNote(null);
     try {
       const next = await api.nextAnatomyItem();
       setItem(next);
@@ -50,14 +52,9 @@ export default function Anatomy() {
   async function choose(choice: string) {
     if (!item || !parsed || selected) return;
     setSelected(choice);
-    const correct = choice === parsed.answer.correctChoice;
     try {
-      await api.submitAttempt({
-        itemId: item.id,
-        selectedAnswer: choice,
-        responseTimeMs: Date.now() - shownAt,
-        correct,
-      });
+      const res = await api.submitAnatomyAttempt(item.id, choice, Date.now() - shownAt);
+      setConfusionNote(res.confusionNote ?? null);
       setRounds((r) => r + 1);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to submit");
@@ -114,6 +111,13 @@ export default function Anatomy() {
           );
         })}
       </div>
+
+      {confusionNote && (
+        <div className="rounded-lg bg-amber-900/30 ring-1 ring-amber-700 px-3 py-2 text-sm text-amber-200">
+          <span className="font-medium">You mixed these up: </span>
+          {confusionNote}
+        </div>
+      )}
 
       {selected && (
         <button onClick={loadNext} className="w-full rounded-lg bg-slate-700 py-3 font-medium">

@@ -21,6 +21,7 @@ export default function Diagnosis() {
   const [guesses, setGuesses] = useState<GuessRecord[]>([]);
   const [answer, setAnswer] = useState<DiagnosisAnswerDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confusionNote, setConfusionNote] = useState<string | null>(null);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -32,6 +33,7 @@ export default function Diagnosis() {
     setAnswer(null);
     setGuesses([]);
     setGuess("");
+    setConfusionNote(null);
     setChatMessages([]);
     setChatInput("");
     try {
@@ -57,6 +59,7 @@ export default function Diagnosis() {
       const res = await api.guessDiagnosis(itemId, guess.trim(), Date.now() - shownAt);
       setGuesses((g) => [...g, { text: guess.trim(), hint: res.hint, organSystemMatch: res.organSystemMatch, acuityMatch: res.acuityMatch }]);
       setGuess("");
+      if (res.confusionNote) setConfusionNote(res.confusionNote);
       if (res.correct && res.answer) setAnswer(res.answer);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to grade that guess");
@@ -148,6 +151,13 @@ export default function Diagnosis() {
               </p>
             </div>
           ))}
+        </div>
+      )}
+
+      {confusionNote && (
+        <div className="rounded-lg bg-amber-900/30 ring-1 ring-amber-700 px-3 py-2 text-sm text-amber-200">
+          <span className="font-medium">You mixed these up: </span>
+          {confusionNote}
         </div>
       )}
 

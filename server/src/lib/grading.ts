@@ -2,6 +2,7 @@ import type { Module } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { cardToRowData, newCard, Rating, rowToCard, schedule, type FsrsGrade } from "./fsrs.js";
 import { updateMasteryForItem } from "./mastery.js";
+import { updateConfusionOnRetest } from "./confusion.js";
 
 /**
  * Records one attempt against the shared FSRS/mastery pipeline. Used by every
@@ -42,5 +43,6 @@ export async function recordAttempt(params: {
   ]);
 
   await updateMasteryForItem(params.itemId, params.correct, params.responseTimeMs, params.difficulty);
+  await updateConfusionOnRetest(params.itemId, params.correct);
   return rowData;
 }

@@ -152,6 +152,27 @@ async function main() {
     update: {},
   });
 
+  // Each bone gets its own concept (not just the shared "Long Bones" category)
+  // so the confusion-pair engine can tell "confused Femur for Humerus" apart
+  // from "confused Femur for Tibia" — a shared category concept would make
+  // every wrong long-bone guess collapse onto the same (correct===guessed)
+  // concept id and never register as a confusion.
+  const femurConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-femur" },
+    create: { id: "seed-concept-femur", name: "Femur", kind: "STRUCTURE", parentId: longBones.id },
+    update: {},
+  });
+  const humerusConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-humerus" },
+    create: { id: "seed-concept-humerus", name: "Humerus", kind: "STRUCTURE", parentId: longBones.id },
+    update: {},
+  });
+  const handBonesConcept = await prisma.conceptNode.upsert({
+    where: { id: "seed-concept-hand-bones" },
+    create: { id: "seed-concept-hand-bones", name: "Bones of the hand", kind: "STRUCTURE", parentId: handSkeleton.id },
+    update: {},
+  });
+
   const COMMONS = "https://commons.wikimedia.org/wiki/Special:FilePath";
   const anatomyItems: Array<{
     id: string;
@@ -166,7 +187,7 @@ async function main() {
       imageFile: "Femur.png",
       choices: ["Femur", "Tibia", "Humerus", "Fibula"],
       correctChoice: "Femur",
-      conceptId: longBones.id,
+      conceptId: femurConcept.id,
       difficulty: 0.2,
     },
     {
@@ -174,7 +195,7 @@ async function main() {
       imageFile: "Humerus_-_lateral_view.png",
       choices: ["Humerus", "Radius", "Ulna", "Femur"],
       correctChoice: "Humerus",
-      conceptId: longBones.id,
+      conceptId: humerusConcept.id,
       difficulty: 0.2,
     },
     {
@@ -182,7 +203,7 @@ async function main() {
       imageFile: "Gray219.png",
       choices: ["Bones of the hand", "Bones of the foot", "Bones of the skull", "Vertebral column"],
       correctChoice: "Bones of the hand",
-      conceptId: handSkeleton.id,
+      conceptId: handBonesConcept.id,
       difficulty: 0.4,
     },
   ];

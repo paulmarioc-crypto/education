@@ -80,6 +80,7 @@ export interface DiagnosisGuessResponse {
   acuityMatch: boolean;
   hint: string;
   answer?: DiagnosisAnswerDTO;
+  confusionNote?: string;
 }
 
 export interface QuizGenerateResponse {
@@ -90,6 +91,14 @@ export interface QuizGenerateResponse {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+export interface ConfusionPairDTO {
+  id: string;
+  conceptA: string;
+  conceptB: string;
+  correctStreak: number;
+  confidence: number;
 }
 
 export const api = {
@@ -138,4 +147,10 @@ export const api = {
       body: JSON.stringify({ question, history }),
     }),
   nextAnatomyItem: () => request<ItemDTO>("/anatomy/next"),
+  submitAnatomyAttempt: (itemId: string, selectedChoice: string, responseTimeMs: number) =>
+    request<{ correct: boolean; confusionNote?: string }>("/anatomy/attempt", {
+      method: "POST",
+      body: JSON.stringify({ itemId, selectedChoice, responseTimeMs }),
+    }),
+  confusions: () => request<ConfusionPairDTO[]>("/confusions"),
 };

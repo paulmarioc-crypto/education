@@ -332,3 +332,69 @@ export async function chatAboutCase(params: {
   });
   return response.choices[0]?.message.content ?? "I couldn't come up with an answer to that — try rephrasing?";
 }
+
+export interface ConfusionExplanation {
+  explanation: string;
+  retestQuestion: string;
+  retestChoices: string[];
+  retestCorrectChoice: string;
+}
+
+const CONFUSION_PARAMETERS = {
+  type: "object",
+  properties: {
+    explanation: {
+      type: "string",
+      description: "3-5 sentences contrasting the two concepts — what distinguishes them, likely why they're easy to mix up.",
+    },
+    retestQuestion: { type: "string", description: "One new question that specifically forces discriminating between these two concepts (not a repeat of the original)." },
+    retestChoices: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
+    retestCorrectChoice: { type: "string", description: "Must exactly match one of retestChoices." },
+  },
+  required: ["explanation", "retestQuestion", "retestChoices", "retestCorrectChoice"],
+};
+
+/**
+ * Mistake-diagnosis engine (cross-cutting, per spec §4.5): given a concept the
+ * student confused with another, produces a short contrasting explanation
+ * plus one follow-up question that retests specifically that discrimination
+ * — not a generic re-ask of the original question.
+ */
+export async function generateConfusionExplanation(params: {
+  correctConcept: string;
+  confusedWithConcept: string;
+  context: string;
+}): Promise<ConfusionExplanation> {
+  const response = await client.chat.completions.create({
+    model: TEXT_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "A student just confused two related concepts while studying. Write a short, targeted explanation " +
+          "contrasting them, then one new multiple-choice question designed specifically to test whether they can " +
+          "now tell them apart — not a repeat of the original question, and not a generic question about either " +
+          "concept alone; it must hinge on the specific distinction between them.",
+      },
+      {
+        role: "user",
+        content:
+          `Context: ${params.context}\n` +
+          `The student confused "${params.confusedWithConcept}" for "${params.correctConcept}" (the correct answer was "${params.correctConcept}").`,
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "submit_confusion_explanation",
+          description: "Submit the contrasting explanation and retest question.",
+          parameters: CONFUSION_PARAMETERS,
+          strict: true,
+        },
+      },
+    ],
+    tool_choice: { type: "function", function: { name: "submit_confusion_explanation" } },
+  });
+  return parseToolArgs<ConfusionExplanation>(response, "submit_confusion_explanation");
+}
