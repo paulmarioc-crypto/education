@@ -42,5 +42,5 @@ attemptsRouter.post("/", async (req, res) => {
     grade: rating,
   });
 
-  res.json({ correct, due: rowData.due, stability: rowData.stability, state: rowData.state });
+  res.json({ correct, due: rowData.due, stability: rowData.stability, state: rowData.state, gamification: rowData.gamification });
 });

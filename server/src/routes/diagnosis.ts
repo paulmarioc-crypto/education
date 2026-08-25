@@ -146,15 +146,16 @@ diagnosisRouter.post("/guess", async (req, res) => {
   // convention) — later guesses in the same round are a learning aid.
   const alreadyGraded = (await prisma.attempt.count({ where: { itemId } })) > 0;
   let confusionNote: string | undefined;
+  let gamification: Awaited<ReturnType<typeof recordAttempt>>["gamification"] | undefined;
   if (!alreadyGraded) {
-    await recordAttempt({
+    ({ gamification } = await recordAttempt({
       itemId,
       correct: feedback.correct,
       selectedAnswer: guess,
       responseTimeMs,
       module: "DIAGNOSIS",
       difficulty: item.difficulty,
-    });
+    }));
 
     if (!feedback.correct) {
       const correctConceptId = item.concepts[0]?.conceptId;
@@ -174,7 +175,7 @@ diagnosisRouter.post("/guess", async (req, res) => {
     }
   }
 
-  res.json({ ...feedback, answer: feedback.correct ? answerKey : undefined, confusionNote });
+  res.json({ ...feedback, answer: feedback.correct ? answerKey : undefined, confusionNote, gamification });
 });
 
 diagnosisRouter.post("/:itemId/reveal", async (req, res) => {

@@ -27,11 +27,16 @@ prominently rather than presenting unsourced content as verified. Requires
 [console.groq.com](https://console.groq.com)) set in Vercel's Environment
 Variables.
 
-Currently implemented (Stages 1-3 of the build order): the data model, FSRS
-spaced-repetition core, flashcard review, the Diagnosis Game, and Quiz Mode A
-(upload PDF/PPTX/DOCX/images → AI-generated questions). Remaining modules
-(Anatomy Guesser, topic-only quiz generation, diagnosis chat, mistake-diagnosis
-engine, gamification) land in later stages.
+All 7 build stages are implemented:
+
+- **Recall/Review** — FSRS spaced-repetition core, flashcard + quiz-question review queue
+- **Diagnosis Game** — AI-generated cases grounded in live PubMed retrieval, guess-the-diagnosis with hints, post-answer chat Q&A about the case
+- **Quiz Engine** — Mode A (upload PDF/PPTX/DOCX/images → AI-generated questions) and Mode B (generate from a typed topic)
+- **Anatomy Guesser** — pin-the-structure game over public-domain Gray's Anatomy plates (Wikimedia Commons), mastery-weighted item selection
+- **Mistake-diagnosis engine** — detects when a wrong answer reveals a specific concept mix-up (not just "wrong"), generates a targeted contrasting explanation, and serves a discrimination retest until it's resolved
+- **Gamification** — XP, levels, daily streaks, and behavior-based achievements (streaks, resolved confusions, full-branch mastery), shared across every module via the same grading pipeline
+
+The mastery/spaced-repetition backbone (Elo-like mastery scoring + FSRS scheduling) and the confusion-pair tracker underlie all four study modules, so no module is a scoring silo.
 
 ## Deploying changes
 

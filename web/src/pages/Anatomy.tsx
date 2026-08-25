@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, type ItemDTO } from "../lib/api.js";
+import { api, ApiError, type ItemDTO, type GamificationResultDTO } from "../lib/api.js";
+import { useGamification } from "../lib/gamificationContext.js";
+import { GamificationBanner } from "../components/GamificationBanner.js";
 
 interface AnatomyIdPrompt {
   imageUrl: string;
@@ -19,12 +21,15 @@ export default function Anatomy() {
   const [selected, setSelected] = useState<string | null>(null);
   const [rounds, setRounds] = useState(0);
   const [confusionNote, setConfusionNote] = useState<string | null>(null);
+  const [gamification, setGamification] = useState<GamificationResultDTO | null>(null);
+  const { refresh: refreshGamification } = useGamification();
 
   async function loadNext() {
     setLoading(true);
     setError(null);
     setSelected(null);
     setConfusionNote(null);
+    setGamification(null);
     try {
       const next = await api.nextAnatomyItem();
       setItem(next);
@@ -55,6 +60,8 @@ export default function Anatomy() {
     try {
       const res = await api.submitAnatomyAttempt(item.id, choice, Date.now() - shownAt);
       setConfusionNote(res.confusionNote ?? null);
+      setGamification(res.gamification);
+      refreshGamification();
       setRounds((r) => r + 1);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to submit");
@@ -118,6 +125,8 @@ export default function Anatomy() {
           {confusionNote}
         </div>
       )}
+
+      <GamificationBanner result={gamification} />
 
       {selected && (
         <button onClick={loadNext} className="w-full rounded-lg bg-slate-700 py-3 font-medium">

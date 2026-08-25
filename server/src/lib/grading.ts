@@ -3,11 +3,12 @@ import { prisma } from "./prisma.js";
 import { cardToRowData, newCard, Rating, rowToCard, schedule, type FsrsGrade } from "./fsrs.js";
 import { updateMasteryForItem } from "./mastery.js";
 import { updateConfusionOnRetest } from "./confusion.js";
+import { recordGamification, checkBranchMasteryAchievement, type GamificationResult } from "./gamification.js";
 
 /**
- * Records one attempt against the shared FSRS/mastery pipeline. Used by every
- * module (flashcards, diagnosis cases, and later quiz/anatomy) so no module
- * is a scoring silo.
+ * Records one attempt against the shared FSRS/mastery/gamification pipeline.
+ * Used by every module (flashcards, diagnosis cases, quiz, anatomy) so no
+ * module is a scoring silo and XP/streaks/achievements stay unified.
  */
 export async function recordAttempt(params: {
   itemId: string;
@@ -17,7 +18,7 @@ export async function recordAttempt(params: {
   module: Module;
   difficulty: number;
   grade?: FsrsGrade;
-}) {
+}): Promise<ReturnType<typeof cardToRowData> & { gamification: GamificationResult }> {
   const grade = params.grade ?? (params.correct ? Rating.Good : Rating.Again);
   const now = new Date();
   const existingState = await prisma.reviewState.findUnique({ where: { itemId: params.itemId } });
@@ -43,6 +44,12 @@ export async function recordAttempt(params: {
   ]);
 
   await updateMasteryForItem(params.itemId, params.correct, params.responseTimeMs, params.difficulty);
-  await updateConfusionOnRetest(params.itemId, params.correct);
-  return rowData;
+  const confusionAchievements = await updateConfusionOnRetest(params.itemId, params.correct);
+
+  const gamification = await recordGamification(params.correct, params.difficulty);
+  gamification.newAchievements.push(...confusionAchievements);
+  const branchAchievement = await checkBranchMasteryAchievement();
+  if (branchAchievement) gamification.newAchievements.push(branchAchievement);
+
+  return { ...rowData, gamification };
 }

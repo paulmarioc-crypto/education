@@ -1,5 +1,6 @@
 import { prisma } from "./prisma.js";
 import { generateConfusionExplanation } from "../services/llm.js";
+import { checkConfusionAchievements } from "./gamification.js";
 import type { QuizQuestionAnswer, QuizQuestionPrompt } from "./itemTypes.js";
 
 const RESOLUTION_STREAK = 3;
@@ -72,18 +73,25 @@ export async function detectAndRecordConfusion(params: {
 /**
  * Called on every graded attempt. If the item is a confusion-pair retest
  * (source AI_RETEST, sourceRef = ConfusionPair id), advances or resets that
- * pair's correctStreak and resolves it once the streak hits the bar.
+ * pair's correctStreak and resolves it once the streak hits the bar. Returns
+ * any achievements newly unlocked by that resolution.
  */
-export async function updateConfusionOnRetest(itemId: string, correct: boolean): Promise<void> {
+export async function updateConfusionOnRetest(
+  itemId: string,
+  correct: boolean
+): Promise<{ title: string; description: string }[]> {
   const item = await prisma.item.findUnique({ where: { id: itemId }, select: { source: true, sourceRef: true } });
-  if (!item || item.source !== "AI_RETEST" || !item.sourceRef) return;
+  if (!item || item.source !== "AI_RETEST" || !item.sourceRef) return [];
 
   const pair = await prisma.confusionPair.findUnique({ where: { id: item.sourceRef } });
-  if (!pair || pair.resolved) return;
+  if (!pair || pair.resolved) return [];
 
   const correctStreak = correct ? pair.correctStreak + 1 : 0;
+  const resolved = correctStreak >= RESOLUTION_STREAK;
   await prisma.confusionPair.update({
     where: { id: pair.id },
-    data: { correctStreak, resolved: correctStreak >= RESOLUTION_STREAK },
+    data: { correctStreak, resolved },
   });
+
+  return resolved ? checkConfusionAchievements() : [];
 }

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { api, type ConceptDTO, type ConfusionPairDTO } from "../lib/api.js";
+import { api, type ConceptDTO, type ConfusionPairDTO, type GamificationDTO } from "../lib/api.js";
 
 export default function Progress() {
   const [concepts, setConcepts] = useState<ConceptDTO[] | null>(null);
   const [confusions, setConfusions] = useState<ConfusionPairDTO[] | null>(null);
+  const [gamification, setGamification] = useState<GamificationDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.concepts().then(setConcepts).catch((e) => setError(e.message));
     api.confusions().then(setConfusions).catch(() => setConfusions([]));
+    api.gamification().then(setGamification).catch(() => setGamification(null));
   }, []);
 
   if (error) return <p className="p-6 text-red-400">{error}</p>;
@@ -18,6 +20,42 @@ export default function Progress() {
 
   return (
     <div className="p-4 space-y-6">
+      {gamification && (
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Progress & achievements</h2>
+          <div className="rounded-lg bg-slate-800 p-3 flex justify-around text-center text-sm">
+            <div>
+              <p className="text-xl font-semibold text-sky-400">{gamification.level}</p>
+              <p className="text-slate-400">Level</p>
+            </div>
+            <div>
+              <p className="text-xl font-semibold text-sky-400">{gamification.xp}</p>
+              <p className="text-slate-400">XP</p>
+            </div>
+            <div>
+              <p className="text-xl font-semibold text-sky-400">🔥 {gamification.currentStreak}</p>
+              <p className="text-slate-400">Day streak</p>
+            </div>
+            <div>
+              <p className="text-xl font-semibold text-sky-400">{gamification.longestStreak}</p>
+              <p className="text-slate-400">Longest streak</p>
+            </div>
+          </div>
+          {gamification.achievements.length > 0 ? (
+            <div className="grid gap-2">
+              {gamification.achievements.map((a) => (
+                <div key={a.key} className="rounded-lg bg-violet-900/20 ring-1 ring-violet-800 p-3 text-sm">
+                  <p className="text-violet-200 font-medium">{a.title}</p>
+                  <p className="text-slate-400">{a.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-slate-500 text-sm">No achievements unlocked yet — keep studying.</p>
+          )}
+        </div>
+      )}
+
       {confusions && confusions.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Active mix-ups</h2>

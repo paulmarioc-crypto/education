@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type ItemDTO } from "../lib/api.js";
+import { api, type ItemDTO, type GamificationResultDTO } from "../lib/api.js";
+import { useGamification } from "../lib/gamificationContext.js";
+import { GamificationBanner } from "../components/GamificationBanner.js";
 
 type Rating = 1 | 2 | 3 | 4;
 const RATINGS: { rating: Rating; label: string; className: string }[] = [
@@ -66,6 +68,8 @@ export default function Review() {
   const [error, setError] = useState<string | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const [lastGamification, setLastGamification] = useState<GamificationResultDTO | null>(null);
+  const { refresh: refreshGamification } = useGamification();
 
   useEffect(() => {
     api
@@ -105,12 +109,14 @@ export default function Review() {
     if (!current || !parsed) return;
     const responseTimeMs = Date.now() - shownAt;
     try {
-      await api.submitAttempt({
+      const result = await api.submitAttempt({
         itemId: current.id,
         selectedAnswer: RATINGS.find((r) => r.rating === rating)!.label,
         responseTimeMs,
         rating,
       });
+      setLastGamification(result.gamification);
+      refreshGamification();
       setCompletedCount((c) => c + 1);
       setIndex((i) => i + 1);
     } catch (e) {
@@ -123,12 +129,14 @@ export default function Review() {
     setSelectedChoice(choice);
     const responseTimeMs = Date.now() - shownAt;
     try {
-      await api.submitAttempt({
+      const result = await api.submitAttempt({
         itemId: current.id,
         selectedAnswer: choice,
         responseTimeMs,
         correct: choice === quiz.answer.correctChoice,
       });
+      setLastGamification(result.gamification);
+      refreshGamification();
       setCompletedCount((c) => c + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to submit");
@@ -167,6 +175,7 @@ export default function Review() {
         <div className="text-sm text-slate-400 text-center">
           Today: {dueCount} reviews, {newCount} new · {index + 1} of {queue.length}
         </div>
+        <GamificationBanner result={lastGamification} />
         <div className="flex-1 flex flex-col justify-center gap-4 max-w-lg mx-auto w-full">
           <div className="rounded-2xl bg-slate-800 p-6">
             <p className="text-lg">{quiz.prompt.question}</p>
@@ -217,6 +226,7 @@ export default function Review() {
       <div className="text-sm text-slate-400 text-center">
         Today: {dueCount} reviews, {newCount} new · {index + 1} of {queue.length}
       </div>
+      <GamificationBanner result={lastGamification} />
 
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-lg rounded-2xl bg-slate-800 p-6 min-h-[200px] flex flex-col justify-center gap-4">

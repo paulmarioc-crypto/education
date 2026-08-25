@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { api, ApiError, type ChatMessage, type DiagnosisAnswerDTO, type DiagnosisCasePromptDTO } from "../lib/api.js";
+import { api, ApiError, type ChatMessage, type DiagnosisAnswerDTO, type DiagnosisCasePromptDTO, type GamificationResultDTO } from "../lib/api.js";
+import { useGamification } from "../lib/gamificationContext.js";
+import { GamificationBanner } from "../components/GamificationBanner.js";
 
 interface GuessRecord {
   text: string;
@@ -22,6 +24,8 @@ export default function Diagnosis() {
   const [answer, setAnswer] = useState<DiagnosisAnswerDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confusionNote, setConfusionNote] = useState<string | null>(null);
+  const [gamification, setGamification] = useState<GamificationResultDTO | null>(null);
+  const { refresh: refreshGamification } = useGamification();
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -34,6 +38,7 @@ export default function Diagnosis() {
     setGuesses([]);
     setGuess("");
     setConfusionNote(null);
+    setGamification(null);
     setChatMessages([]);
     setChatInput("");
     try {
@@ -60,6 +65,10 @@ export default function Diagnosis() {
       setGuesses((g) => [...g, { text: guess.trim(), hint: res.hint, organSystemMatch: res.organSystemMatch, acuityMatch: res.acuityMatch }]);
       setGuess("");
       if (res.confusionNote) setConfusionNote(res.confusionNote);
+      if (res.gamification) {
+        setGamification(res.gamification);
+        refreshGamification();
+      }
       if (res.correct && res.answer) setAnswer(res.answer);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to grade that guess");
@@ -160,6 +169,8 @@ export default function Diagnosis() {
           {confusionNote}
         </div>
       )}
+
+      <GamificationBanner result={gamification} />
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 

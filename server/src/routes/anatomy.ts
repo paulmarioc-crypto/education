@@ -57,7 +57,7 @@ anatomyRouter.post("/attempt", async (req, res) => {
   const answerKey = JSON.parse(item.answerKey) as AnatomyIdAnswer;
   const correct = selectedChoice === answerKey.correctChoice;
 
-  await recordAttempt({
+  const { gamification } = await recordAttempt({
     itemId,
     correct,
     selectedAnswer: selectedChoice,
@@ -84,5 +84,5 @@ anatomyRouter.post("/attempt", async (req, res) => {
     }
   }
 
-  res.json({ correct, confusionNote });
+  res.json({ correct, confusionNote, gamification });
 });

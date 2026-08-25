@@ -81,6 +81,7 @@ export interface DiagnosisGuessResponse {
   hint: string;
   answer?: DiagnosisAnswerDTO;
   confusionNote?: string;
+  gamification?: GamificationResultDTO;
 }
 
 export interface QuizGenerateResponse {
@@ -101,6 +102,31 @@ export interface ConfusionPairDTO {
   confidence: number;
 }
 
+export interface AchievementDTO {
+  key: string;
+  title: string;
+  description: string;
+  unlockedAt: string;
+}
+
+export interface GamificationDTO {
+  xp: number;
+  level: number;
+  currentStreak: number;
+  longestStreak: number;
+  achievements: AchievementDTO[];
+}
+
+/** Per-attempt gamification delta, echoed back on every graded attempt response. */
+export interface GamificationResultDTO {
+  xpGained: number;
+  xp: number;
+  level: number;
+  leveledUp: boolean;
+  currentStreak: number;
+  newAchievements: { title: string; description: string }[];
+}
+
 export const api = {
   sessionToday: () => request<SessionTodayDTO>("/session/today"),
   submitAttempt: (body: {
@@ -109,10 +135,11 @@ export const api = {
     responseTimeMs: number;
     rating?: 1 | 2 | 3 | 4;
     correct?: boolean;
-  }) => request<{ correct: boolean; due: string; stability: number; state: number }>("/attempts", {
-    method: "POST",
-    body: JSON.stringify(body),
-  }),
+  }) =>
+    request<{ correct: boolean; due: string; stability: number; state: number; gamification: GamificationResultDTO }>(
+      "/attempts",
+      { method: "POST", body: JSON.stringify(body) }
+    ),
   concepts: () => request<ConceptDTO[]>("/concepts"),
   flagItem: (id: string, flagged: boolean, note?: string) =>
     request<ItemDTO>(`/items/${id}/flag`, { method: "POST", body: JSON.stringify({ flagged, note }) }),
@@ -148,9 +175,10 @@ export const api = {
     }),
   nextAnatomyItem: () => request<ItemDTO>("/anatomy/next"),
   submitAnatomyAttempt: (itemId: string, selectedChoice: string, responseTimeMs: number) =>
-    request<{ correct: boolean; confusionNote?: string }>("/anatomy/attempt", {
+    request<{ correct: boolean; confusionNote?: string; gamification: GamificationResultDTO }>("/anatomy/attempt", {
       method: "POST",
       body: JSON.stringify({ itemId, selectedChoice, responseTimeMs }),
     }),
   confusions: () => request<ConfusionPairDTO[]>("/confusions"),
+  gamification: () => request<GamificationDTO>("/gamification"),
 };
